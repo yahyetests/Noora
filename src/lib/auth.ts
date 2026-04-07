@@ -1,8 +1,9 @@
 /* ============================================
    Noora — Auth Service
+   Supabase Auth is the single source of truth.
    ============================================ */
 
-import { supabase, isSupabaseConfigured } from './supabase';
+import { supabase } from './supabase';
 import type { Profile } from './database.types';
 
 export interface AuthUser {
@@ -32,10 +33,6 @@ export async function signUp(
   fullName: string,
   role: 'academic' | 'student'
 ): Promise<AuthResult> {
-  if (!isSupabaseConfigured()) {
-    return mockSignUp(email, fullName, role);
-  }
-
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -77,10 +74,6 @@ export async function signUp(
  * Sign in with email & password
  */
 export async function signIn(email: string, password: string): Promise<AuthResult> {
-  if (!isSupabaseConfigured()) {
-    return mockSignIn(email);
-  }
-
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
@@ -108,22 +101,56 @@ export async function signIn(email: string, password: string): Promise<AuthResul
 }
 
 /**
- * Sign in with Google OAuth
+ * Sign in with Google OAuth via Supabase
  */
 export async function signInWithGoogle(): Promise<void> {
-  if (!isSupabaseConfigured()) return;
-
-  await supabase.auth.signInWithOAuth({
+  const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: `${window.location.origin}/dashboard` },
+    options: { redirectTo: `${window.location.origin}/auth/callback` },
   });
+
+  if (error) {
+    console.error('Google OAuth error:', error.message);
+  }
+}
+
+/**
+ * Sign in with ORCID via Supabase (custom OIDC provider)
+ *
+ * ORCID must be configured as a custom OIDC provider in the Supabase dashboard:
+ *   Authentication → Providers → Add custom OIDC
+ *   - Issuer URL: https://orcid.org
+ *   - Client ID / Secret: from orcid.org/developer-tools
+ *
+ * Returns false if ORCID is not yet configured.
+ */
+export async function signInWithOrcid(): Promise<{ started: boolean; error?: string }> {
+  try {
+    // Supabase custom OIDC providers use the provider slug you set in the dashboard.
+    // If you named it 'orcid', use 'orcid' here.
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'orcid' as any, // Custom OIDC provider — not in the built-in type
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+
+    if (error) {
+      // Provider not configured in Supabase
+      if (error.message.includes('unsupported') || error.message.includes('not found') || error.message.includes('provider')) {
+        return { started: false, error: 'ORCID sign-in is not yet configured. Please contact an administrator.' };
+      }
+      return { started: false, error: error.message };
+    }
+
+    return { started: true };
+  } catch (err) {
+    return { started: false, error: 'ORCID sign-in is currently unavailable.' };
+  }
 }
 
 /**
  * Sign out
  */
 export async function signOut(): Promise<void> {
-  if (!isSupabaseConfigured()) return;
   await supabase.auth.signOut();
 }
 
@@ -131,8 +158,6 @@ export async function signOut(): Promise<void> {
  * Send password reset email
  */
 export async function resetPassword(email: string): Promise<AuthResult> {
-  if (!isSupabaseConfigured()) return { success: true };
-
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/login`,
   });
@@ -144,8 +169,6 @@ export async function resetPassword(email: string): Promise<AuthResult> {
  * Get user profile from DB
  */
 export async function getProfile(userId: string): Promise<Profile | null> {
-  if (!isSupabaseConfigured()) return null;
-
   const { data } = await supabase
     .from('profiles')
     .select('*')
@@ -168,8 +191,6 @@ export async function updateProfile(
     role?: 'academic' | 'student';
   }
 ): Promise<AuthResult> {
-  if (!isSupabaseConfigured()) return { success: true };
-
   const { error } = await supabase
     .from('profiles')
     .update({ ...updates, updated_at: new Date().toISOString() } as Record<string, unknown>)
@@ -182,19 +203,15 @@ export async function updateProfile(
  * Update password
  */
 export async function updatePassword(newPassword: string): Promise<AuthResult> {
-  if (!isSupabaseConfigured()) return { success: true };
-
   const { error } = await supabase.auth.updateUser({ password: newPassword });
 
   return error ? { success: false, error: error.message } : { success: true };
 }
 
 /**
- * Get current session user
+ * Get current session user (validates against Supabase session)
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
-  if (!isSupabaseConfigured()) return null;
-
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) return null;
 
@@ -210,15 +227,4 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     orcid_id: profile?.orcid_id,
     avatar_url: profile?.avatar_url,
   };
-}
-
-// ── Mock functions ──
-
-function mockSignUp(email: string, fullName: string, role: 'academic' | 'student'): AuthResult {
-  return { success: true, user: { id: 'mock-' + Date.now(), email, name: fullName, role } };
-}
-
-function mockSignIn(email: string): AuthResult {
-  const name = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  return { success: true, user: { id: 'mock-' + Date.now(), email, name, role: 'academic' } };
 }

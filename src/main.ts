@@ -19,6 +19,7 @@ import { appState } from './state';
 // Pages
 import { renderLanding } from './pages/landing';
 import { renderLogin, renderRegister, renderMFA } from './pages/auth';
+import { renderAuthCallback } from './pages/callback';
 import { renderDashboard } from './pages/dashboard';
 import { renderSearch } from './pages/search';
 import { renderAbstractScreening, renderFullTextScreening } from './pages/screening';
@@ -52,6 +53,7 @@ router.addRoute('/register', () => renderRegister(app));
 router.addRoute('/mfa', () => renderMFA(app));
 router.addRoute('/verify-email', () => renderVerifyEmail(app));
 router.addRoute('/onboarding', () => renderOnboarding(app));
+router.addRoute('/auth/callback', () => renderAuthCallback(app));
 
 // Marketing routes
 router.addRoute('/for-academics', () => renderForAcademics(app));

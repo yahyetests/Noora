@@ -1,8 +1,10 @@
 /* ============================================
    Noora — App State (Supabase-integrated)
+   Supabase Auth is the single source of truth.
+   No localStorage session fallback.
    ============================================ */
 
-import { supabase, isSupabaseConfigured } from './lib/supabase';
+import { supabase } from './lib/supabase';
 import { getCurrentUser, type AuthUser } from './lib/auth';
 
 export interface AppState {
@@ -30,6 +32,7 @@ class StateManager {
     };
 
     private listeners: ((state: AppState) => void)[] = [];
+    private initialSessionHandled = false;
 
     get(): AppState {
         return { ...this.state };
@@ -42,13 +45,10 @@ class StateManager {
 
     login(user: AppState['user']): void {
         this.set({ isLoggedIn: true, user, loading: false });
-        // Persist to localStorage as fallback
-        localStorage.setItem('sf-user', JSON.stringify(user));
     }
 
     logout(): void {
         this.set({ isLoggedIn: false, user: null, currentProject: null, loading: false });
-        localStorage.removeItem('sf-user');
     }
 
     setUserFromAuth(authUser: AuthUser): void {
@@ -65,55 +65,52 @@ class StateManager {
     }
 
     /**
-     * Restore session from Supabase or localStorage fallback
+     * Restore session from Supabase only.
+     * No localStorage fallback — Supabase is the single source of truth.
      */
     async restore(): Promise<void> {
         this.set({ loading: true });
 
-        if (isSupabaseConfigured()) {
-            try {
-                const authUser = await getCurrentUser();
-                if (authUser) {
-                    this.setUserFromAuth(authUser);
-                    return;
-                }
-            } catch {
-                // Fall through to localStorage
-            }
-        }
-
-        // Fallback: restore from localStorage
-        const saved = localStorage.getItem('sf-user');
-        if (saved) {
-            try {
-                const user = JSON.parse(saved);
-                // Ensure the user object has an id field
-                if (!user.id) user.id = 'local-' + Date.now();
-                this.set({ isLoggedIn: true, user, loading: false });
+        try {
+            const authUser = await getCurrentUser();
+            if (authUser) {
+                this.setUserFromAuth(authUser);
+                this.initialSessionHandled = true;
                 return;
-            } catch { /* ignore */ }
+            }
+        } catch (err) {
+            console.error('Session restore failed:', err);
         }
 
+        this.initialSessionHandled = true;
         this.set({ loading: false });
     }
 
     onChange(listener: (state: AppState) => void): void {
         this.listeners.push(listener);
     }
+
+    /** Whether the initial session check has completed */
+    isInitialized(): boolean {
+        return this.initialSessionHandled;
+    }
 }
 
 export const appState = new StateManager();
 
 // ── Listen for Supabase auth state changes ──
-if (isSupabaseConfigured()) {
-    supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-            const authUser = await getCurrentUser();
-            if (authUser) {
-                appState.setUserFromAuth(authUser);
-            }
-        } else if (event === 'SIGNED_OUT') {
-            appState.logout();
+// Only react to SIGNED_IN / SIGNED_OUT events that happen AFTER
+// the initial session restore to prevent double-processing.
+supabase.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session?.user) {
+        // Skip if this is the initial session load (already handled by restore())
+        if (!appState.isInitialized()) return;
+
+        const authUser = await getCurrentUser();
+        if (authUser) {
+            appState.setUserFromAuth(authUser);
         }
-    });
-}
+    } else if (event === 'SIGNED_OUT') {
+        appState.logout();
+    }
+});

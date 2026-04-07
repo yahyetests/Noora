@@ -2,7 +2,7 @@
    Noora — Projects Service
    ============================================ */
 
-import { supabase, isSupabaseConfigured } from './supabase';
+import { supabase } from './supabase';
 import type { Project } from './database.types';
 
 export interface ProjectWithStats extends Project {
@@ -18,10 +18,6 @@ export interface ProjectWithStats extends Project {
  * Get all projects for the current user
  */
 export async function getUserProjects(userId: string): Promise<ProjectWithStats[]> {
-  if (!isSupabaseConfigured()) {
-    return getMockProjects();
-  }
-
   // Get projects where user is owner
   const { data: ownedProjects } = await supabase
     .from('projects')
@@ -91,22 +87,6 @@ export async function createProject(
     review_type?: string;
   }
 ): Promise<{ success: boolean; project?: Project; error?: string }> {
-  if (!isSupabaseConfigured()) {
-    const mockProject: Project = {
-      id: 'mock-' + Date.now(),
-      title: data.title,
-      description: data.description || null,
-      research_question: data.research_question || null,
-      review_type: data.review_type || 'Systematic Review',
-      citation_style: 'APA 7th Edition',
-      status: 'active',
-      owner_id: userId,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    return { success: true, project: mockProject };
-  }
-
   const insertData = {
     title: data.title,
     description: data.description || null,
@@ -152,70 +132,7 @@ export async function createProject(
  * Delete a project
  */
 export async function deleteProject(projectId: string): Promise<{ success: boolean; error?: string }> {
-  if (!isSupabaseConfigured()) return { success: true };
-
   const { error } = await supabase.from('projects').delete().eq('id', projectId);
 
   return error ? { success: false, error: error.message } : { success: true };
-}
-
-// ── Mock data ──
-
-function getMockProjects(): ProjectWithStats[] {
-  return [
-    {
-      id: 'cbt-anxiety',
-      title: 'Effects of CBT on Anxiety Disorders',
-      description: 'Systematic review and meta-analysis of randomized controlled trials examining cognitive behavioral therapy for generalized anxiety disorder in adults.',
-      research_question: null,
-      review_type: 'Systematic Review',
-      citation_style: 'APA 7th Edition',
-      status: 'active',
-      owner_id: 'mock',
-      created_at: new Date().toISOString(),
-      updated_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      references_count: 1247,
-      screened_count: 892,
-      included_count: 156,
-      extracted_count: 42,
-      members_count: 5,
-      progress: 58,
-    },
-    {
-      id: 'ai-education',
-      title: 'AI in Higher Education: A Scoping Review',
-      description: 'Mapping the landscape of artificial intelligence applications in university-level teaching and learning environments across STEM disciplines.',
-      research_question: null,
-      review_type: 'Scoping Review',
-      citation_style: 'APA 7th Edition',
-      status: 'active',
-      owner_id: 'mock',
-      created_at: new Date().toISOString(),
-      updated_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      references_count: 2340,
-      screened_count: 1180,
-      included_count: 210,
-      extracted_count: 0,
-      members_count: 2,
-      progress: 32,
-    },
-    {
-      id: 'nutrition-aging',
-      title: 'Nutritional Interventions for Healthy Aging',
-      description: 'Review of dietary and supplementation strategies for cognitive decline prevention in adults aged 60+.',
-      research_question: null,
-      review_type: 'Systematic Review',
-      citation_style: 'Vancouver',
-      status: 'active',
-      owner_id: 'mock',
-      created_at: new Date().toISOString(),
-      updated_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      references_count: 780,
-      screened_count: 780,
-      included_count: 89,
-      extracted_count: 67,
-      members_count: 3,
-      progress: 78,
-    },
-  ];
 }

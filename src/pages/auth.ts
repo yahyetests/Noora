@@ -1,13 +1,12 @@
 /* ============================================
    Noora — Auth Pages (Login / Register / 2FA)
-   Integrated with Supabase Auth
+   Supabase Auth — no mocks, no auto-login.
    ============================================ */
 
 import { icon } from '../icons';
 import { appState } from '../state';
 import { router } from '../router';
-import { signIn, signUp, signInWithGoogle, resetPassword } from '../lib/auth';
-import { isSupabaseConfigured } from '../lib/supabase';
+import { signIn, signUp, signInWithGoogle, signInWithOrcid, resetPassword } from '../lib/auth';
 
 function showAuthError(formId: string, message: string): void {
   const existing = document.querySelector(`#${formId} .auth-error`);
@@ -19,6 +18,19 @@ function showAuthError(formId: string, message: string): void {
     errDiv.className = 'auth-error';
     errDiv.innerHTML = `${icon('alertCircle', 16)} ${message}`;
     form.prepend(errDiv);
+  }
+}
+
+function showGlobalAuthError(message: string): void {
+  const existing = document.querySelector('.auth-global-error');
+  if (existing) existing.remove();
+
+  const card = document.querySelector('.auth-card');
+  if (card) {
+    const errDiv = document.createElement('div');
+    errDiv.className = 'auth-error auth-global-error';
+    errDiv.innerHTML = `${icon('alertCircle', 16)} ${message}`;
+    card.prepend(errDiv);
   }
 }
 
@@ -83,13 +95,6 @@ export function renderLogin(app: HTMLElement): void {
             </button>
           </form>
 
-          ${!isSupabaseConfigured() ? `
-          <div class="auth-dev-notice">
-            ${icon('alertCircle', 14)}
-            <span>Dev mode: Supabase not configured. Auth is mocked.</span>
-          </div>
-          ` : ''}
-
           <div class="auth-footer">
             Don't have an account? <a href="/register" data-link>Create one free</a>
           </div>
@@ -122,7 +127,7 @@ export function renderLogin(app: HTMLElement): void {
     </div>
   `;
 
-  // Login handler
+  // Email/password login
   document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = (document.getElementById('loginEmail') as HTMLInputElement)?.value;
@@ -142,25 +147,23 @@ export function renderLogin(app: HTMLElement): void {
     }
   });
 
-  // Google login
+  // Google login — explicit user click only
   document.getElementById('googleLoginBtn')?.addEventListener('click', async () => {
-    if (isSupabaseConfigured()) {
-      await signInWithGoogle();
-    } else {
-      // Mock
-      appState.login({ id: 'mock-google', name: 'Dr. Sarah Chen', email: 'sarah.chen@stanford.edu', role: 'academic' });
-      router.navigate('/dashboard');
-    }
+    await signInWithGoogle();
   });
 
-  // ORCID login (mock — ORCID OAuth needs custom setup)
+  // ORCID login — explicit user click only, with proper error handling
   document.getElementById('orcidLoginBtn')?.addEventListener('click', async () => {
-    if (isSupabaseConfigured()) {
-      await signInWithGoogle(); // Fallback to Google for now
-    } else {
-      appState.login({ id: 'mock-orcid', name: 'Dr. Sarah Chen', email: 'sarah.chen@stanford.edu', role: 'academic' });
-      router.navigate('/dashboard');
+    const btn = document.getElementById('orcidLoginBtn') as HTMLButtonElement;
+    btn.disabled = true;
+
+    const result = await signInWithOrcid();
+
+    if (!result.started) {
+      btn.disabled = false;
+      showGlobalAuthError(result.error || 'ORCID sign-in is currently unavailable.');
     }
+    // If started, the browser will redirect to ORCID — no further action needed
   });
 
   // Forgot password
@@ -261,13 +264,6 @@ export function renderRegister(app: HTMLElement): void {
             </button>
           </form>
 
-          ${!isSupabaseConfigured() ? `
-          <div class="auth-dev-notice">
-            ${icon('alertCircle', 14)}
-            <span>Dev mode: Supabase not configured. Auth is mocked.</span>
-          </div>
-          ` : ''}
-
           <div class="auth-footer">
             Already have an account? <a href="/login" data-link>Sign in</a>
           </div>
@@ -342,7 +338,6 @@ export function renderRegister(app: HTMLElement): void {
 
     if (result.success) {
       if (result.needsVerification) {
-        // Supabase requires email verification
         router.navigate('/verify-email');
       } else if (result.user) {
         appState.setUserFromAuth(result.user);
@@ -354,22 +349,21 @@ export function renderRegister(app: HTMLElement): void {
     }
   });
 
-  // Google signup
+  // Google signup — explicit user click only
   document.getElementById('googleRegBtn')?.addEventListener('click', async () => {
-    if (isSupabaseConfigured()) {
-      await signInWithGoogle();
-    } else {
-      appState.login({ id: 'mock-google', name: 'Dr. Sarah Chen', email: 'sarah.chen@stanford.edu', role: 'academic' });
-      router.navigate('/onboarding');
-    }
+    await signInWithGoogle();
   });
 
+  // ORCID signup — explicit user click only, with proper error handling
   document.getElementById('orcidRegBtn')?.addEventListener('click', async () => {
-    if (isSupabaseConfigured()) {
-      await signInWithGoogle();
-    } else {
-      appState.login({ id: 'mock-orcid', name: 'Dr. Sarah Chen', email: 'sarah.chen@stanford.edu', role: 'academic' });
-      router.navigate('/onboarding');
+    const btn = document.getElementById('orcidRegBtn') as HTMLButtonElement;
+    btn.disabled = true;
+
+    const result = await signInWithOrcid();
+
+    if (!result.started) {
+      btn.disabled = false;
+      showGlobalAuthError(result.error || 'ORCID sign-in is currently unavailable.');
     }
   });
 }
