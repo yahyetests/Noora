@@ -1,0 +1,396 @@
+/* ============================================
+   Noora — Auth Page Styles
+   ============================================ */
+
+.auth-page {
+    min-height: 100vh;
+    display: flex;
+    position: relative;
+    overflow: hidden;
+}
+
+.auth-page::before {
+    content: '';
+    position: absolute;
+    top: -300px;
+    left: -200px;
+    width: 800px;
+    height: 800px;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.08) 0%, transparent 60%);
+    pointer-events: none;
+}
+
+.auth-page::after {
+    content: '';
+    position: absolute;
+    bottom: -200px;
+    right: -200px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.06) 0%, transparent 60%);
+    pointer-events: none;
+}
+
+.auth-left {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-8);
+    position: relative;
+    z-index: 1;
+}
+
+.auth-right {
+    flex: 1;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-8);
+    background: var(--brand-gradient);
+    position: relative;
+    overflow: hidden;
+}
+
+.auth-right::before {
+    content: '';
+    position: absolute;
+    top: -100px;
+    right: -100px;
+    width: 500px;
+    height: 500px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 50%;
+}
+
+.auth-right-content {
+    text-align: center;
+    color: white;
+    max-width: 400px;
+    position: relative;
+    z-index: 1;
+}
+
+.auth-right-content h2 {
+    font-size: 2rem;
+    margin-bottom: var(--space-4);
+}
+
+.auth-right-content p {
+    font-size: var(--text-section-heading);
+    opacity: 0.9;
+    line-height: var(--leading-relaxed);
+    margin-bottom: var(--space-8);
+}
+
+.auth-right-features {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    text-align: left;
+}
+
+.auth-right-feature {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--text-body);
+    opacity: 0.9;
+}
+
+.auth-right-feature .icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.15);
+    flex-shrink: 0;
+}
+
+@media (min-width: 1024px) {
+    .auth-right {
+        display: flex;
+    }
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 440px;
+}
+
+.auth-card .nav-brand {
+    margin-bottom: var(--space-10);
+    justify-content: center;
+}
+
+.auth-card h1 {
+    font-size: var(--text-page-title);
+    text-align: center;
+    margin-bottom: var(--space-2);
+}
+
+.auth-card .auth-subtitle {
+    text-align: center;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-8);
+}
+
+/* Social Login */
+.social-logins {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin-bottom: var(--space-6);
+}
+
+.social-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    background: var(--surface-content-bg);
+    border: 1px solid var(--border-default);
+    font-weight: var(--weight-medium);
+    font-size: var(--text-body);
+    transition: all var(--duration-normal) var(--ease-default);
+    cursor: pointer;
+    width: 100%;
+}
+
+.social-btn:hover {
+    border-color: var(--border-brand);
+    background: var(--interactive-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.social-btn .icon {
+    width: 20px;
+    height: 20px;
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    margin: var(--space-6) 0;
+    color: var(--text-tertiary);
+    font-size: var(--text-label);
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-default);
+}
+
+/* Form */
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.form-label {
+    font-size: var(--text-label);
+    font-weight: var(--weight-medium);
+    color: var(--text-secondary);
+}
+
+.form-input {
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--text-body);
+    border-radius: var(--radius-lg);
+}
+
+.form-input-icon {
+    position: relative;
+}
+
+.form-input-icon .icon {
+    position: absolute;
+    left: var(--space-4);
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-tertiary);
+    pointer-events: none;
+}
+
+.form-input-icon input {
+    padding-left: calc(var(--space-4) + 24px + var(--space-2));
+}
+
+.form-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.form-checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-label);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.form-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--brand-purple);
+}
+
+.form-link {
+    font-size: var(--text-label);
+    color: var(--text-link);
+    font-weight: var(--weight-medium);
+}
+
+.password-strength {
+    display: flex;
+    gap: var(--space-1);
+    margin-top: var(--space-1);
+}
+
+.password-strength-segment {
+    flex: 1;
+    height: 3px;
+    border-radius: var(--radius-full);
+    background: var(--border-default);
+    transition: background var(--duration-normal) var(--ease-default);
+}
+
+.password-strength-segment.active.weak {
+    background: var(--color-error);
+}
+
+.password-strength-segment.active.medium {
+    background: var(--color-warning);
+}
+
+.password-strength-segment.active.strong {
+    background: var(--color-success);
+}
+
+.auth-footer {
+    text-align: center;
+    margin-top: var(--space-6);
+    font-size: var(--text-label);
+    color: var(--text-secondary);
+}
+
+.auth-footer a {
+    color: var(--text-link);
+    font-weight: var(--weight-semibold);
+}
+
+/* Role Selection */
+.role-selection {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+    margin-bottom: var(--space-6);
+}
+
+.role-option {
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--border-default);
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--duration-normal) var(--ease-default);
+}
+
+.role-option:hover {
+    border-color: var(--border-brand);
+    background: var(--interactive-hover);
+}
+
+.role-option.selected {
+    border-color: var(--brand-purple);
+    background: var(--brand-gradient-soft);
+}
+
+.role-option .icon {
+    margin: 0 auto var(--space-2);
+    color: var(--brand-purple);
+}
+
+.role-option h4 {
+    font-size: var(--text-body);
+    margin-bottom: var(--space-1);
+}
+
+.role-option p {
+    font-size: var(--text-micro);
+    color: var(--text-tertiary);
+}
+
+/* 2FA Screen */
+.mfa-container {
+    text-align: center;
+}
+
+.mfa-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-xl);
+    background: var(--brand-gradient-soft);
+    color: var(--brand-purple);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto var(--space-6);
+}
+
+.mfa-inputs {
+    display: flex;
+    gap: var(--space-3);
+    justify-content: center;
+    margin: var(--space-8) 0;
+}
+
+.mfa-input {
+    width: 48px;
+    height: 56px;
+    text-align: center;
+    font-size: var(--text-section-heading);
+    font-weight: var(--weight-bold);
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--border-default);
+    background: var(--input-bg);
+    transition: all var(--duration-fast) var(--ease-default);
+}
+
+.mfa-input:focus {
+    border-color: var(--brand-purple);
+    box-shadow: 0 0 0 3px var(--interactive-focus-ring);
+}
+
+.mfa-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    align-items: center;
+}
+
+.mfa-resend {
+    font-size: var(--text-label);
+    color: var(--text-link);
+    cursor: pointer;
+    margin-top: var(--space-4);
+}
