@@ -7,6 +7,7 @@ import { appState } from '../state';
 import { router } from '../router';
 import { themeManager } from '../theme';
 import { renderAppShell } from './shell';
+import { updateProfile, updatePassword } from '../lib/auth';
 
 export function renderSettings(app: HTMLElement): void {
   const user = appState.get().user;
@@ -380,19 +381,62 @@ export function renderSettings(app: HTMLElement): void {
     document.documentElement.classList.toggle('high-contrast', checked);
   });
 
-  // Profile form
-  document.getElementById('profileForm')?.addEventListener('submit', (e) => {
+  // Profile form — save to Supabase
+  document.getElementById('profileForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const btn = (e.target as HTMLFormElement).querySelector('button[type="submit"]') as HTMLButtonElement;
-    btn.innerHTML = `${icon('check', 16)} Saved!`;
+    const form = e.target as HTMLFormElement;
+    const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    const inputs = form.querySelectorAll('input');
+    const fullName = (inputs[0] as HTMLInputElement)?.value || user.name;
+    const institution = (inputs[2] as HTMLInputElement)?.value || null;
+    const department = (inputs[3] as HTMLInputElement)?.value || null;
+    const orcidId = (inputs[4] as HTMLInputElement)?.value || null;
+
+    btn.innerHTML = '<span class="btn-spinner"></span> Saving...';
+    btn.disabled = true;
+
+    const result = await updateProfile(user.id || '', { full_name: fullName, institution, department, orcid_id: orcidId });
+
+    if (result.success) {
+      // Update local state
+      appState.login({ ...user, name: fullName, institution, department, orcid_id: orcidId });
+      btn.innerHTML = `${icon('check', 16)} Saved!`;
+    } else {
+      btn.innerHTML = `${icon('alertCircle', 16)} Error`;
+    }
+
+    btn.disabled = false;
     setTimeout(() => { btn.innerHTML = `${icon('check', 16)} Save Changes`; }, 2000);
   });
 
-  // Password form
-  document.getElementById('passwordForm')?.addEventListener('submit', (e) => {
+  // Password form — update via Supabase
+  document.getElementById('passwordForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const btn = (e.target as HTMLFormElement).querySelector('button[type="submit"]') as HTMLButtonElement;
-    btn.innerHTML = `${icon('check', 16)} Password Updated`;
+    const form = e.target as HTMLFormElement;
+    const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    const inputs = form.querySelectorAll('input[type="password"]');
+    const newPw = (inputs[1] as HTMLInputElement)?.value;
+    const confirmPw = (inputs[2] as HTMLInputElement)?.value;
+
+    if (newPw !== confirmPw) {
+      btn.innerHTML = `${icon('alertCircle', 16)} Passwords don't match`;
+      setTimeout(() => { btn.innerHTML = `${icon('lock', 16)} Update Password`; }, 2000);
+      return;
+    }
+
+    btn.innerHTML = '<span class="btn-spinner"></span> Updating...';
+    btn.disabled = true;
+
+    const result = await updatePassword(newPw);
+
+    if (result.success) {
+      btn.innerHTML = `${icon('check', 16)} Password Updated`;
+      form.reset();
+    } else {
+      btn.innerHTML = `${icon('alertCircle', 16)} ${result.error || 'Error'}`;
+    }
+
+    btn.disabled = false;
     setTimeout(() => { btn.innerHTML = `${icon('lock', 16)} Update Password`; }, 2000);
   });
 }

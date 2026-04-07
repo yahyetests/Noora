@@ -5,6 +5,7 @@
 import { icon } from '../icons';
 import { appState } from '../state';
 import { router } from '../router';
+import { createProject } from '../lib/projects';
 
 export function renderOnboarding(app: HTMLElement): void {
   const user = appState.get().user;
@@ -218,10 +219,26 @@ export function renderOnboarding(app: HTMLElement): void {
       }
     });
 
-    // Create project form
-    document.getElementById('createProjectForm')?.addEventListener('submit', (e) => {
+    // Create project form — persist to Supabase
+    document.getElementById('createProjectForm')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      appState.set({ currentProject: 'new-project' });
+      const title = (document.getElementById('projectTitle') as HTMLInputElement)?.value;
+      if (!title) return;
+
+      const btn = (e.target as HTMLFormElement).querySelector('button[type="submit"]') as HTMLButtonElement;
+      btn.innerHTML = '<span class="btn-spinner"></span> Creating...';
+      btn.disabled = true;
+
+      const user = appState.get().user;
+      const result = await createProject(user?.id || 'mock', {
+        title,
+        research_question: ((e.target as HTMLFormElement).querySelector('textarea') as HTMLTextAreaElement)?.value || undefined,
+        review_type: ((e.target as HTMLFormElement).querySelector('select') as HTMLSelectElement)?.value,
+      });
+
+      if (result.success && result.project) {
+        appState.set({ currentProject: result.project.id });
+      }
       router.navigate('/dashboard');
     });
   }

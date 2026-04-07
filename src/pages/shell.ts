@@ -6,6 +6,7 @@ import { icon } from '../icons';
 import { themeManager } from '../theme';
 import { appState } from '../state';
 import { router } from '../router';
+import { signOut } from '../lib/auth';
 
 type ActivePage = 'dashboard' | 'search' | 'import' | 'screen-abstract' | 'screen-fulltext' | 'extraction' | 'writing' | 'export' | 'settings' | 'team' | 'project-settings' | 'activity';
 
@@ -167,8 +168,9 @@ export function renderAppShell(app: HTMLElement, activePage: ActivePage, content
         document.getElementById('appSidebar')?.classList.toggle('open');
     });
 
-    // User menu
-    document.getElementById('sidebarUser')?.addEventListener('click', () => {
+    // User menu — real logout
+    document.getElementById('sidebarUser')?.addEventListener('click', async () => {
+        await signOut();
         appState.logout();
         router.navigate('/');
     });

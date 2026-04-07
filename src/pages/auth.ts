@@ -1,10 +1,36 @@
 /* ============================================
    Noora — Auth Pages (Login / Register / 2FA)
+   Integrated with Supabase Auth
    ============================================ */
 
 import { icon } from '../icons';
 import { appState } from '../state';
 import { router } from '../router';
+import { signIn, signUp, signInWithGoogle, resetPassword } from '../lib/auth';
+import { isSupabaseConfigured } from '../lib/supabase';
+
+function showAuthError(formId: string, message: string): void {
+  const existing = document.querySelector(`#${formId} .auth-error`);
+  if (existing) existing.remove();
+
+  const form = document.getElementById(formId);
+  if (form) {
+    const errDiv = document.createElement('div');
+    errDiv.className = 'auth-error';
+    errDiv.innerHTML = `${icon('alertCircle', 16)} ${message}`;
+    form.prepend(errDiv);
+  }
+}
+
+function setButtonLoading(btn: HTMLButtonElement, loading: boolean, originalText: string): void {
+  if (loading) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-spinner"></span> Please wait...';
+  } else {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+  }
+}
 
 export function renderLogin(app: HTMLElement): void {
   app.innerHTML = `
@@ -50,12 +76,19 @@ export function renderLogin(app: HTMLElement): void {
               <label class="form-checkbox">
                 <input type="checkbox" checked /> Remember me
               </label>
-              <a href="#" class="form-link">Forgot password?</a>
+              <a href="#" class="form-link" id="forgotPasswordLink">Forgot password?</a>
             </div>
-            <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:var(--space-2)">
+            <button type="submit" class="btn btn-primary btn-lg" id="loginSubmitBtn" style="width:100%;margin-top:var(--space-2)">
               Sign In
             </button>
           </form>
+
+          ${!isSupabaseConfigured() ? `
+          <div class="auth-dev-notice">
+            ${icon('alertCircle', 14)}
+            <span>Dev mode: Supabase not configured. Auth is mocked.</span>
+          </div>
+          ` : ''}
 
           <div class="auth-footer">
             Don't have an account? <a href="/register" data-link>Create one free</a>
@@ -90,22 +123,64 @@ export function renderLogin(app: HTMLElement): void {
   `;
 
   // Login handler
-  document.getElementById('loginForm')?.addEventListener('submit', (e) => {
+  document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = (document.getElementById('loginEmail') as HTMLInputElement)?.value;
-    const name = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-    appState.login({ name, email, role: 'academic' });
-    router.navigate('/dashboard');
+    const password = (document.getElementById('loginPassword') as HTMLInputElement)?.value;
+    const btn = document.getElementById('loginSubmitBtn') as HTMLButtonElement;
+
+    setButtonLoading(btn, true, 'Sign In');
+
+    const result = await signIn(email, password);
+
+    if (result.success && result.user) {
+      appState.setUserFromAuth(result.user);
+      router.navigate('/dashboard');
+    } else {
+      setButtonLoading(btn, false, 'Sign In');
+      showAuthError('loginForm', result.error || 'Invalid email or password');
+    }
   });
 
-  document.getElementById('googleLoginBtn')?.addEventListener('click', () => {
-    appState.login({ name: 'Dr. Sarah Chen', email: 'sarah.chen@stanford.edu', role: 'academic' });
-    router.navigate('/mfa');
+  // Google login
+  document.getElementById('googleLoginBtn')?.addEventListener('click', async () => {
+    if (isSupabaseConfigured()) {
+      await signInWithGoogle();
+    } else {
+      // Mock
+      appState.login({ id: 'mock-google', name: 'Dr. Sarah Chen', email: 'sarah.chen@stanford.edu', role: 'academic' });
+      router.navigate('/dashboard');
+    }
   });
 
-  document.getElementById('orcidLoginBtn')?.addEventListener('click', () => {
-    appState.login({ name: 'Dr. Sarah Chen', email: 'sarah.chen@stanford.edu', role: 'academic' });
-    router.navigate('/mfa');
+  // ORCID login (mock — ORCID OAuth needs custom setup)
+  document.getElementById('orcidLoginBtn')?.addEventListener('click', async () => {
+    if (isSupabaseConfigured()) {
+      await signInWithGoogle(); // Fallback to Google for now
+    } else {
+      appState.login({ id: 'mock-orcid', name: 'Dr. Sarah Chen', email: 'sarah.chen@stanford.edu', role: 'academic' });
+      router.navigate('/dashboard');
+    }
+  });
+
+  // Forgot password
+  document.getElementById('forgotPasswordLink')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const email = (document.getElementById('loginEmail') as HTMLInputElement)?.value;
+    if (!email) {
+      showAuthError('loginForm', 'Enter your email address above, then click Forgot password.');
+      return;
+    }
+    const result = await resetPassword(email);
+    if (result.success) {
+      const link = document.getElementById('forgotPasswordLink');
+      if (link) {
+        link.textContent = 'Reset link sent!';
+        link.style.color = 'var(--color-success)';
+      }
+    } else {
+      showAuthError('loginForm', result.error || 'Could not send reset email.');
+    }
   });
 }
 
@@ -169,7 +244,7 @@ export function renderRegister(app: HTMLElement): void {
               <label class="form-label" for="regPassword">Password</label>
               <div class="form-input-icon">
                 ${icon('lock', 18)}
-                <input type="password" id="regPassword" class="form-input" placeholder="Create a strong password" required />
+                <input type="password" id="regPassword" class="form-input" placeholder="Min 8 characters" required minlength="8" />
               </div>
               <div class="password-strength">
                 <div class="password-strength-segment"></div>
@@ -179,12 +254,19 @@ export function renderRegister(app: HTMLElement): void {
               </div>
             </div>
             <label class="form-checkbox" style="margin-top:var(--space-1)">
-              <input type="checkbox" required /> I agree to the <a href="#" class="form-link" style="margin-left:4px">Terms of Service</a>
+              <input type="checkbox" required /> I agree to the <a href="/terms" data-link class="form-link" style="margin-left:4px">Terms of Service</a>
             </label>
-            <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:var(--space-2)">
+            <button type="submit" class="btn btn-primary btn-lg" id="registerSubmitBtn" style="width:100%;margin-top:var(--space-2)">
               Create Account
             </button>
           </form>
+
+          ${!isSupabaseConfigured() ? `
+          <div class="auth-dev-notice">
+            ${icon('alertCircle', 14)}
+            <span>Dev mode: Supabase not configured. Auth is mocked.</span>
+          </div>
+          ` : ''}
 
           <div class="auth-footer">
             Already have an account? <a href="/login" data-link>Sign in</a>
@@ -242,22 +324,53 @@ export function renderRegister(app: HTMLElement): void {
   });
 
   // Register handler
-  document.getElementById('registerForm')?.addEventListener('submit', (e) => {
+  document.getElementById('registerForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = (document.getElementById('regName') as HTMLInputElement)?.value;
     const email = (document.getElementById('regEmail') as HTMLInputElement)?.value;
-    appState.login({ name, email, role: selectedRole as 'academic' | 'student' });
-    router.navigate('/mfa');
+    const password = (document.getElementById('regPassword') as HTMLInputElement)?.value;
+    const btn = document.getElementById('registerSubmitBtn') as HTMLButtonElement;
+
+    if (password.length < 8) {
+      showAuthError('registerForm', 'Password must be at least 8 characters.');
+      return;
+    }
+
+    setButtonLoading(btn, true, 'Create Account');
+
+    const result = await signUp(email, password, name, selectedRole as 'academic' | 'student');
+
+    if (result.success) {
+      if (result.needsVerification) {
+        // Supabase requires email verification
+        router.navigate('/verify-email');
+      } else if (result.user) {
+        appState.setUserFromAuth(result.user);
+        router.navigate('/onboarding');
+      }
+    } else {
+      setButtonLoading(btn, false, 'Create Account');
+      showAuthError('registerForm', result.error || 'Registration failed. Please try again.');
+    }
   });
 
-  document.getElementById('googleRegBtn')?.addEventListener('click', () => {
-    appState.login({ name: 'Dr. Sarah Chen', email: 'sarah.chen@stanford.edu', role: 'academic' });
-    router.navigate('/mfa');
+  // Google signup
+  document.getElementById('googleRegBtn')?.addEventListener('click', async () => {
+    if (isSupabaseConfigured()) {
+      await signInWithGoogle();
+    } else {
+      appState.login({ id: 'mock-google', name: 'Dr. Sarah Chen', email: 'sarah.chen@stanford.edu', role: 'academic' });
+      router.navigate('/onboarding');
+    }
   });
 
-  document.getElementById('orcidRegBtn')?.addEventListener('click', () => {
-    appState.login({ name: 'Dr. Sarah Chen', email: 'sarah.chen@stanford.edu', role: 'academic' });
-    router.navigate('/mfa');
+  document.getElementById('orcidRegBtn')?.addEventListener('click', async () => {
+    if (isSupabaseConfigured()) {
+      await signInWithGoogle();
+    } else {
+      appState.login({ id: 'mock-orcid', name: 'Dr. Sarah Chen', email: 'sarah.chen@stanford.edu', role: 'academic' });
+      router.navigate('/onboarding');
+    }
   });
 }
 

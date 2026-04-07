@@ -35,9 +35,6 @@ import { renderTeam } from './pages/team';
 import { renderProjectSettings } from './pages/project-settings';
 import { renderActivity } from './pages/activity';
 
-// Restore session
-appState.restore();
-
 const app = document.getElementById('app')!;
 
 // Register routes
@@ -98,5 +95,21 @@ router.setNotFound(() => {
   `;
 });
 
-// Initialize router
-router.init();
+// Initialize: restore session then start router
+async function init() {
+  // Show loading state
+  app.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;min-height:100vh">
+      <div style="text-align:center">
+        <div style="width:40px;height:40px;margin:0 auto 16px;border:3px solid var(--border-subtle);border-top-color:var(--brand-purple);border-radius:50%;animation:spin 0.8s linear infinite"></div>
+        <p style="color:var(--text-tertiary);font-size:14px">Loading...</p>
+      </div>
+    </div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  `;
+
+  await appState.restore();
+  router.init();
+}
+
+init();
